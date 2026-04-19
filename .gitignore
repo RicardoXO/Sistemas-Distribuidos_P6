@@ -1,0 +1,26 @@
+# Entornos de Python
+__pycache__/
+venv/
+env/
+.env
+
+# Dependencias de Node
+node_modules/
+dist/
+build/
+
+# Archivos de SO
+.DS_Store
+Thumbs.db
+
+# Credenciales de Firebase
+firebase_credenciales.json
+
+# Llaves criptográficas privadas y públicas
+*.pem
+
+# Bases de datos locales viejas
+*.db
+*.sqlite3
+
+

@@ -1,0 +1,452 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+/* =========================================
+   REGLA DE ORO: Evita que los inputs se salgan
+   ========================================= */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  /* Paleta Clínica / Hospital */
+  --bg-main: #f0f4f8;        /* Gris azulado muy claro para el fondo principal */
+  --bg-card: #ffffff;        /* Blanco puro para las tarjetas */
+  --text-main: #212529;      /* Gris pizarra para mejor lectura (no negro puro) */
+  --text-muted: #6c757d;     /* Gris claro para subtítulos */
+  
+  --primary: #0056b3;        /* Azul Médico (Confianza) */
+  --success: #198754;        /* Verde (Éxito / Surtido) */
+  --danger: #dc3545;         /* Rojo (Errores / Alertas) */
+  --warning: #ffc107;        /* Amarillo (Precaución) */
+
+  --border-color: #dee2e6;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Estilos globales para títulos */
+h1, h2, h3 {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Un estilo sutil para que los inputs no se vean tan genéricos */
+input, select, textarea {
+  font-family: var(--font-sans);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+}
+
+
+/* =========================================
+   ESTILOS PREMIUM - ENTERPRISE LOGIN
+   ========================================= */
+
+/* Layout de Pantalla Dividida */
+.login-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+/* Panel Izquierdo: Branding y Confianza */
+.login-left {
+  flex: 1;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Efecto de círculos brillantes de fondo */
+.login-left::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+/* Panel Derecho: Formulario Glassmorphism */
+.login-right {
+  flex: 1;
+  background-color: #f8fafc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+}
+
+/* Tarjetas de Selección de Rol */
+.role-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.role-card {
+  flex: 1;
+  padding: 15px 10px;
+  text-align: center;
+  background: #f1f5f9;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #64748b;
+}
+
+.role-card:hover {
+  background: #e2e8f0;
+}
+
+.role-card.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  font-weight: 600;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
+}
+
+/* Inputs Premium */
+.input-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.premium-input {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.premium-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  outline: none;
+}
+
+/* Botón Mágico */
+.btn-primary {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(to right, #2563eb, #1d4ed8);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+}
+
+/* Badge TLS */
+.tls-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+
+
+/* =========================================
+   FONDOS HEALTHTECH PREMIUM (COMPETICIÓN)
+   ========================================= */
+
+.health-tech-bg {
+  min-height: 100vh;
+  width: 100%;
+  padding: 40px 20px;
+  /* El color base es un azul casi negro */
+  background-color: #020617; 
+  /* Capas de gradientes: Orbes de luz + Cuadrícula criptográfica */
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(37, 99, 235, 0.15), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(20, 184, 166, 0.15), transparent 25%),
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
+  animation: breathe 15s ease-in-out infinite alternate;
+  font-family: var(--font-sans);
+}
+
+/* Animación de "respiración" para los orbes de luz */
+@keyframes breathe {
+  0% { background-position: 0% 0%, 0% 0%, 0 0, 0 0; }
+  100% { background-position: 5% 10%, -5% -10%, 0 0, 0 0; }
+}
+
+/* =========================================
+   TARJETAS GLASSMORPHISM (Para fondo oscuro)
+   ========================================= */
+
+.glass-panel {
+  background: rgba(15, 23, 42, 0.6); /* Azul muy oscuro translúcido */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  padding: 35px;
+  color: #f8fafc;
+}
+
+/* Botón llamativo principal */
+.btn-competencia {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  padding: 16px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+}
+
+.btn-competencia:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.6);
+}
+
+/* =========================================================
+   ANIMACIÓN DE PÍLDORA MÉDICA PARA CARGAS CRIPTOGRÁFICAS
+   ========================================================= */
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.spinning-pill {
+  width: 32px;
+  height: 14px;
+  border-radius: 15px; /* Bordes totalmente redondeados como píldora */
+  /* Mitad de un color, mitad de otro para que se note el giro */
+  background: linear-gradient(90deg, #ffffff 50%, #ef4444 50%); 
+  border: 2px solid #ffffff; /* Borde sutil para resaltar */
+  box-shadow: 0 0 8px rgba(0,0,0,0.2);
+  /* Animación infinita con un ritmo suave */
+  animation: spin-pill 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes spin-pill {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* =========================================
+   FONDO DE PANTALLA PARA EL MÉDICO
+   ========================================= */
+.medico-bg-container {
+  min-height: 100vh;
+  width: 100%;
+  
+  /* IMPORTANTE: Cambia "nombre-de-tu-imagen.png" por el nombre real de tu archivo.
+     Asegúrate de que la imagen esté guardada en la carpeta src/assets/ */
+  background-image: url('../assets/nombre-de-tu-imagen.png');
+  
+  background-size: cover;        /* Hace que la imagen cubra toda la pantalla */
+  background-position: center;   /* Centra la imagen */
+  background-repeat: no-repeat;
+  background-attachment: fixed;  /* El fondo se queda quieto si haces scroll */
+  
+  /* Un pequeño overlay oscuro para que la tarjeta del médico resalte más */
+  background-blend-mode: overlay;
+  background-color: rgba(0, 0, 0, 0.4); 
+  
+  /* Centrado del contenido */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 20px;
+}
+
+/* =========================================
+   THEME: GLOWING ACCENTS (MODO CLARO)
+   ========================================= */
+
+/* Panel base claro y translúcido */
+.panel-glow {
+  background: rgba(255, 255, 255, 0.85); /* Blanco cristalino */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08); /* Borde sutil oscuro */
+  border-radius: 16px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  color: #0f172a; /* Texto oscuro para que se lea */
+}
+
+/* Colores de resplandor (Más intensos para fondos claros) */
+.glow-blue { 
+  border-color: rgba(37, 99, 235, 0.5); 
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.15), inset 0 0 5px rgba(37, 99, 235, 0.05); 
+}
+.glow-green { 
+  border-color: rgba(16, 185, 129, 0.5); 
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.15), inset 0 0 5px rgba(16, 185, 129, 0.05); 
+}
+.glow-orange { 
+  border-color: rgba(249, 115, 22, 0.5); 
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.15), inset 0 0 5px rgba(249, 115, 22, 0.05); 
+}
+.glow-teal { 
+  border-color: rgba(13, 148, 136, 0.5); 
+  box-shadow: 0 0 15px rgba(13, 148, 136, 0.2), inset 0 0 5px rgba(13, 148, 136, 0.1); 
+}
+.glow-red { 
+  border-color: rgba(220, 38, 38, 0.5); 
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.2), inset 0 0 5px rgba(220, 38, 38, 0.1); 
+}
+
+/* Inputs claros (CORREGIDOS) */
+.dark-input { 
+  width: 100%;
+  padding: 12px 14px; /* Un poco menos de altura para que no se vean toscos */
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  color: #0f172a;
+  font-size: 15px;
+  transition: all 0.3s ease;
+}
+
+.dark-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  outline: none;
+}
+
+.icon-svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* =========================================
+   FONDO DE PANTALLA PARA EL PACIENTE
+   ========================================= */
+.paciente-bg-container {
+  width: 100vw;
+  min-height: 100vh;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  
+  /* IMPORTANTE: Cambia "fondo-paciente.png" por el nombre de tu nueva imagen */
+  background-image: url('/fondo-paciente.png'); /* Si está en la carpeta public */
+  
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-blend-mode: overlay;
+  background-color: rgba(255, 255, 255, 0.3); /* Filtro translúcido */
+  
+  padding: 40px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* =========================================
+   FONDO DE PANTALLA PARA LA FARMACIA
+   ========================================= */
+.farmacia-bg-container {
+  width: 100vw;
+  min-height: 100vh;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  
+  /* IMPORTANTE: Cambia "fondo-farmacia.png" por tu imagen */
+  background-image: url('/fondo-farmacia.png'); 
+  
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-blend-mode: overlay;
+  background-color: rgba(255, 255, 255, 0.15); /* Mismo filtro translúcido para el modo claro */
+  
+  padding: 40px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
