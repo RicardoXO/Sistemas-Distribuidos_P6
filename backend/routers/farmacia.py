@@ -38,11 +38,19 @@ def surtir_receta(datos: PeticionSurtir, usuario_actual: dict = Depends(verifica
         
     timestamp = datetime.now(timezone.utc).isoformat()
     mensaje_mac = f"{id_receta}|SURTIDA|{timestamp}".encode('utf-8')
-    sello_mac = hmac.new(LLAVE_MAC_FARMACIA.encode('utf-8'), mensaje_mac, hashlib.sha256).hexdigest()
+    #sello_mac = hmac.new(LLAVE_MAC_FARMACIA.encode('utf-8'), mensaje_mac, hashlib.sha256).hexdigest()
+    # Lógica corregida a prueba de balas:
+    llave_bytes = LLAVE_MAC_FARMACIA if isinstance(LLAVE_MAC_FARMACIA, bytes) else LLAVE_MAC_FARMACIA.encode('utf-8')
+
+    sello = hmac.new(
+        llave_bytes,
+        mensaje_mac,
+        hashlib.sha256
+    ).hexdigest()
     
     doc_ref.update({
         "estado": 'SURTIDA',
-        "sello_mac": sello_mac,
+        "sello_mac": sello,
         "fecha_surtido": timestamp
     })
     
@@ -50,5 +58,5 @@ def surtir_receta(datos: PeticionSurtir, usuario_actual: dict = Depends(verifica
         "mensaje": "✅ Medicamento entregado. Receta sellada en la nube.",
         "id_receta": id_receta,
         "timestamp": timestamp,
-        "sello_mac": sello_mac
+        "sello_mac": sello
     }

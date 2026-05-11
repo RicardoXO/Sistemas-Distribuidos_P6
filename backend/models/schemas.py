@@ -32,6 +32,11 @@ class RegistroEntrante(BaseModel):
     llave_publica_ecc: Optional[str] = None
     llave_publica_rsa: Optional[str] = None
     # --- NUEVOS CAMPOS PARA EL KEYSTORE SINCRONIZADO ---
-    llave_privada_encriptada: Optional[str] = None
-    salt: Optional[str] = None
-    iv: Optional[str] = None
+    #llave_privada_encriptada: Optional[str] = None
+    #salt: Optional[str] = None
+    #iv: Optional[str] = None
+
+# Agregar al final de schemas.py
+class LoginAdminPEM(BaseModel):
+    reto: str
+    firma: str

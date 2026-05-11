@@ -2,41 +2,53 @@ import { useState } from 'react';
 import api from '../services/api';
 import { desempaquetarRecetaE2EE } from '../services/cryptoEngine';
 
-export default function Farmacia({ token, llavePrivadaEnMemoria, rol }) {
+export default function Farmacia({ token, rol }) {
   const [datosPeticion, setDatosPeticion] = useState({ id_receta: '' });
   const [recetaDescifrada, setRecetaDescifrada] = useState(null);
   const [error, setError] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [surtidoExitoso, setSurtidoExitoso] = useState(null);
 
+  // --- ESTADO PARA LA LLAVE PEM DE CIFRADO ---
+  const [archivoCifrado, setArchivoCifrado] = useState(null);
+
   const buscarReceta = async (e) => {
     e.preventDefault();
     setError(null);
     setRecetaDescifrada(null);
     setSurtidoExitoso(null);
-    setCargando(true);
 
-    if (!llavePrivadaEnMemoria) {
-      setError("Error Crítico: Bóveda criptográfica inactiva. Cierra sesión y vuelve a ingresar.");
-      setCargando(false);
+    // 1. Validamos que la farmacia haya subido su archivo .pem local
+    if (!archivoCifrado) {
+      setError("Error: Por favor selecciona el archivo de Llave de Cifrado (.pem).");
       return;
     }
+
+    if (!datosPeticion.id_receta) {
+      setError("Error: Ingresa el folio de la receta.");
+      return;
+    }
+
+    setCargando(true);
 
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       
-      // 1. Pedimos el bloque cifrado al servidor (Ruta ciega)
+      // 2. Pedimos el bloque cifrado al servidor (Ruta ciega, el servidor no puede leerlo)
       const respuesta = await api.post('/farmacia/verificar', { id_receta: datosPeticion.id_receta }, config);
       const paqueteCifrado = respuesta.data;
 
-      // 2. Desciframos localmente usando el sobre AES de la farmacia
+      // 3. Extraemos el texto puro del archivo .pem (On-Demand)
+      const textoPEM = await archivoCifrado.text();
+
+      // 4. Desciframos localmente usando el sobre AES de la farmacia
       const datosPlanos = await desempaquetarRecetaE2EE(
         paqueteCifrado,
-        llavePrivadaEnMemoria,
-        rol // Le pasamos "farmacia" para que el motor abra el candado correcto
+        textoPEM, // Pasamos el texto directamente al motor
+        "farmacia" // Forzamos el rol para que el motor abra el candado correcto
       );
 
-      // 3. Mostramos la receta
+      // 5. Mostramos la receta
       setRecetaDescifrada({
         ...datosPlanos,
         id_receta: datosPeticion.id_receta,
@@ -46,7 +58,7 @@ export default function Farmacia({ token, llavePrivadaEnMemoria, rol }) {
 
     } catch (err) {
       console.error(err);
-      setError(err.message || err.response?.data?.detail || "Error al descifrar. Verifica el folio.");
+      setError(err.message || err.response?.data?.detail || "Fallo en el descifrado: La llave no coincide o el folio es incorrecto.");
     } finally {
       setCargando(false);
     }
@@ -59,7 +71,7 @@ export default function Farmacia({ token, llavePrivadaEnMemoria, rol }) {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       
-      // 4. Le avisamos a FastAPI que marque la receta como surtida (Genera el HMAC)
+      // Le avisamos a FastAPI que marque la receta como surtida (Genera el HMAC en el backend)
       const respuesta = await api.post('/farmacia/surtir', { id_receta: recetaDescifrada.id_receta }, config);
       
       setSurtidoExitoso(respuesta.data);
@@ -88,7 +100,7 @@ export default function Farmacia({ token, llavePrivadaEnMemoria, rol }) {
           </div>
         </div>
 
-        {/* BUSCADOR DE RECETAS */}
+        {/* BUSCADOR Y CARGA DE LLAVE */}
         <div className="panel-glow" style={{ padding: '40px', marginBottom: '40px', background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
           <form onSubmit={buscarReceta} style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
             
@@ -104,17 +116,33 @@ export default function Farmacia({ token, llavePrivadaEnMemoria, rol }) {
               />
             </div>
 
-            {/* ESTADO DE LA BÓVEDA EN MEMORIA */}
-            <div className={`panel-glow ${llavePrivadaEnMemoria ? 'glow-teal' : 'glow-red'}`} style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '15px', borderRadius: '12px', background: llavePrivadaEnMemoria ? 'rgba(20, 184, 166, 0.1)' : 'rgba(239, 68, 68, 0.1)' }}>
-               {llavePrivadaEnMemoria ? '✅ Bóveda de Farmacia Conectada (Memoria Segura)' : '❌ Error: No se encontró llave RSA para la farmacia.'}
+            {/* CARGADOR ON-DEMAND PARA LLAVE DE CIFRADO */}
+            <div className="panel-glow glow-blue" style={{ padding: '20px', background: 'rgba(37, 99, 235, 0.05)', marginBottom: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase', marginBottom: '10px' }}>
+                <svg style={{width:'16px'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Llave de Cifrado (.pem)
+              </label>
+              <input 
+                type="file" 
+                accept=".pem" 
+                onChange={(e) => setArchivoCifrado(e.target.files[0])} 
+                style={{ fontSize: '12px', width: '100%', cursor: 'pointer' }}
+              />
+              <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#64748b' }}>
+                Selecciona el archivo <b>llave_cifrado_...pem</b> de la farmacia para descifrar.
+              </p>
             </div>
 
-            <button type="submit" disabled={!llavePrivadaEnMemoria || cargando} style={{ 
-                background: llavePrivadaEnMemoria ? '#0f766e' : '#cbd5e1', 
+            <button 
+              type="submit" 
+              disabled={!archivoCifrado || cargando} 
+              style={{ 
+                background: archivoCifrado ? '#0f766e' : '#cbd5e1', 
                 color: 'white', padding: '20px', borderRadius: '8px', border: 'none', fontSize: '18px', fontWeight: '800', 
-                cursor: llavePrivadaEnMemoria ? 'pointer' : 'not-allowed', width: '100%'
-              }}>
-              {cargando ? 'Procesando...' : 'Verificar y Descifrar Receta'}
+                cursor: archivoCifrado ? 'pointer' : 'not-allowed', width: '100%', transition: 'all 0.3s'
+              }}
+            >
+              {cargando ? 'Descifrando Documento...' : !archivoCifrado ? '🔒 Bóveda Requerida para Descifrar' : '🔓 Verificar y Descifrar Receta'}
             </button>
           </form>
 
@@ -139,11 +167,11 @@ export default function Farmacia({ token, llavePrivadaEnMemoria, rol }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
               <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px' }}>
                 <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>PACIENTE</p>
-                <p style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>{recetaDescifrada.paciente_nombre}</p>
+                <p style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>{recetaDescifrada.paciente_nombre || 'Paciente Verificado'}</p>
               </div>
               <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px' }}>
                 <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>MÉDICO EMISOR</p>
-                <p style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>{recetaDescifrada.medico_nombre}</p>
+                <p style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>{recetaDescifrada.medico_nombre || recetaDescifrada.usuario_medico}</p>
               </div>
             </div>
 
@@ -167,7 +195,7 @@ export default function Farmacia({ token, llavePrivadaEnMemoria, rol }) {
               <div style={{ background: '#dcfce7', border: '2px solid #16a34a', padding: '25px', borderRadius: '12px', textAlign: 'center' }}>
                 <h3 style={{ color: '#16a34a', margin: '0 0 10px 0' }}>{surtidoExitoso.mensaje}</h3>
                 <p style={{ color: '#15803d', margin: '0 0 5px 0' }}>Folio: {surtidoExitoso.id_receta}</p>
-                <p style={{ color: '#15803d', margin: 0, fontSize: '12px', fontFamily: 'monospace' }}>Sello MAC: {surtidoExitoso.sello_mac}</p>
+                <p style={{ color: '#15803d', margin: 0, fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>Sello MAC: {surtidoExitoso.sello_mac}</p>
               </div>
             )}
 

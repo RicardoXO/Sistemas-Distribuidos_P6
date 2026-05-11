@@ -16,7 +16,7 @@ export default function App() {
   const [estadoLogin, setEstadoLogin] = useState('idle'); // idle | autenticando | descifrando
   
   // 🔥 NUEVO ESTADO: Aquí vivirá la llave descifrada mientras el usuario use la app
-  const [llavePrivadaEnMemoria, setLlavePrivadaEnMemoria] = useState(null);
+ // const [llavePrivadaEnMemoria, setLlavePrivadaEnMemoria] = useState(null);
   
   // Estado solo para el diseño visual del selector
   const [rolSeleccionado, setRolSeleccionado] = useState('medico');
@@ -33,56 +33,104 @@ export default function App() {
     setError(null);
   };
 
-  // 1. Petición de Login a FastAPI + Descifrado de Bóveda en RAM
+  // =================================================================
+  // 1. LOGIN NORMAL (Médico, Paciente, Farmacia) - VERSIÓN LIMPIA
+  // =================================================================
   const iniciarSesion = async (e) => {
     e.preventDefault();
     setError(null);
     setEstadoLogin('autenticando');
 
     try {
-      // 1. Validar usuario en el backend
+      // 1. Validar usuario en el backend (Solo obtenemos JWT y Rol)
       const respuesta = await api.post('/api/login', credenciales);
       const data = respuesta.data;
 
-      // 2. Si el backend nos mandó una bóveda cifrada, la abrimos localmente en la RAM
-      if (data.rol !== 'admin' && data.boveda && data.boveda.llave_privada_encriptada) {
-        setEstadoLogin('descifrando');
-        
-        try {
-          // Usamos la contraseña para descifrar el paquete AES-GCM
-          const pemDescifrado = await desencriptarLlaveDeFirebase(
-            data.boveda, 
-            credenciales.password
-          );
-
-          // 3. Guardamos la llave directamente en la RAM (No toca el disco duro)
-          if (data.rol === 'medico') {
-            // El médico empacó dos llaves en un JSON (ECC y RSA), extraemos la ECC para que firme
-            const llavesMedico = JSON.parse(pemDescifrado);
-            setLlavePrivadaEnMemoria(llavesMedico.ecc);
-          } else {
-            // Paciente y farmacia usan RSA
-            setLlavePrivadaEnMemoria(pemDescifrado);
-          }
-
-        } catch (cryptoErr) {
-          console.error("Error criptográfico:", cryptoErr);
-          throw new Error("Credenciales correctas, pero contraseña inválida para abrir la Bóveda Local.");
-        }
-      }
-
-      // Si todo sale bien, damos acceso
+      // 2. Damos acceso inmediato (Adiós bóveda)
       setToken(data.access_token);
       setRol(data.rol);
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('rol', data.rol);
+      
       setEstadoLogin('idle');
 
     } catch (err) {
       setEstadoLogin('idle');
-      setLlavePrivadaEnMemoria(null);
-      setError(err.message || err.response?.data?.detail || "Error de conexión con el servidor.");
+      // Ya no necesitamos setLlavePrivadaEnMemoria(null) porque esa variable ya no existe
+      setError(err.response?.data?.detail || "Error de conexión con el servidor.");
     }
   };
 
+
+  // =================================================================
+  // 2. LOGIN CRIPTOGRÁFICO (Administrador Supremo) - RETO/RESPUESTA
+  // =================================================================
+  const manejarLoginAdminPEM = async (evento) => {
+    evento.preventDefault();
+    const archivoPEM = evento.target.pemFile.files[0];
+    
+    if (!archivoPEM) {
+      setError("Por favor selecciona tu llave privada .pem");
+      return;
+    }
+
+    try {
+      setEstadoLogin('autenticando'); // Usamos tu mismo estado visual
+      
+      // 1. Extraer el texto del archivo .pem
+      const textoPEM = await archivoPEM.text();
+      const base64PEM = textoPEM.replace(/(-----(BEGIN|END) PRIVATE KEY-----|\n|\r)/g, '');
+      
+      // 2. Convertir a binario para la Web Crypto API
+      const binaryDerString = window.atob(base64PEM);
+      const binaryDer = new Uint8Array(binaryDerString.length);
+      for (let i = 0; i < binaryDerString.length; i++) {
+        binaryDer[i] = binaryDerString.charCodeAt(i);
+      }
+
+      // 3. Montar la llave en memoria (NIST P-256)
+      const llavePrivada = await window.crypto.subtle.importKey(
+        "pkcs8",
+        binaryDer.buffer,
+        { name: "ECDSA", namedCurve: "P-256" },
+        false,
+        ["sign"]
+      );
+
+      // 4. Solicitar el Reto al servidor
+      const resReto = await api.get('/api/admin/reto');
+      const reto = resReto.data.reto;
+
+      // 5. Firmar el reto
+      const encoder = new TextEncoder();
+      const firmaBuffer = await window.crypto.subtle.sign(
+        { name: "ECDSA", hash: { name: "SHA-256" } },
+        llavePrivada,
+        encoder.encode(reto)
+      );
+
+      // 6. Enviar firma al servidor
+      const firmaBase64 = window.btoa(String.fromCharCode(...new Uint8Array(firmaBuffer)));
+      const resLogin = await api.post('/api/admin/login-pem', {
+        reto: reto,
+        firma: firmaBase64
+      });
+
+      // 7. Éxito: Guardar token
+      setToken(resLogin.data.access_token);
+      setRol(resLogin.data.rol);
+      localStorage.setItem('token', resLogin.data.access_token);
+      localStorage.setItem('rol', resLogin.data.rol);
+      
+      setError(null);
+      setEstadoLogin('idle');
+      
+    } catch (error) {
+      console.error(error);
+      setEstadoLogin('idle');
+      setError("Acceso Denegado: La llave provista no es válida o expiró el reto.");
+    }
+  };
   const cerrarSesion = () => {
     setToken(null);
     setRol(null);
@@ -180,7 +228,24 @@ export default function App() {
                   {estadoLogin === 'descifrando' && '🔓 Descifrando Bóveda Local (PBKDF2)...'}
                 </button>
               </form>
-              
+              {/* --- LOGIN CRIPTOGRÁFICO PARA ADMINISTRADORES --- */}
+              <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
+                <h4 style={{ color: '#475569', fontSize: '14px', marginBottom: '15px' }}>
+                  <svg style={{width:'16px', verticalAlign: 'middle', marginRight: '5px'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  Acceso Administrativo (Zero-Trust)
+                </h4>
+                <form onSubmit={manejarLoginAdminPEM} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <input 
+                    type="file" 
+                    name="pemFile" 
+                    accept=".pem"
+                    style={{ fontSize: '12px', padding: '10px', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '6px' }}
+                  />
+                  <button type="submit" style={{ background: '#0f172a', color: 'white', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    Verificar Llave y Entrar
+                  </button>
+                </form>
+              </div>
               <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px' }}>
                 ¿Nuevo en el hospital? <a href="#" onClick={(e) => { e.preventDefault(); setMostrandoRegistro(true); }} style={{ color: '#2563eb', fontWeight: 'bold', textDecoration: 'none' }}>Crea tu Identidad Segura</a>
               </p>
@@ -216,9 +281,9 @@ export default function App() {
         </div>
 
         {/* 🔥 PASAMOS LA LLAVE A LAS RUTAS QUE LA NECESITAN */}
-        {rol === 'medico' && <Medico token={token} llavePrivadaEnMemoria={llavePrivadaEnMemoria} />}
-        {rol === 'paciente' && <Paciente token={token} llavePrivadaEnMemoria={llavePrivadaEnMemoria} rol={rol} />}
-        {rol === 'farmacia' && <Farmacia token={token} llavePrivadaEnMemoria={llavePrivadaEnMemoria} rol={rol} />}
+        {rol === 'medico' && <Medico token={token} />}
+        {rol === 'paciente' && <Paciente token={token} rol={rol} />}
+        {rol === 'farmacia' && <Farmacia token={token} rol={rol} />}
         {rol === 'admin' && <Admin token={token} />}
       </div>
     </div>

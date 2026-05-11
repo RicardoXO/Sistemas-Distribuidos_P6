@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import api from '../services/api';
-import { generarLlavesMedico, generarLlavesRSA, encriptarLlaveParaFirebase } from '../services/cryptoVault';
 
 export default function Registro({ volverAlLogin }) {
   const [datos, setDatos] = useState({
-    username: '',
+    usuario: '', // Cambiado de 'username' a 'usuario' para coincidir con el backend
     password: '',
     nombre: '',
     edad: '',
-    rol: 'paciente' // Por defecto
+    rol: 'paciente' 
   });
+  
   const [estado, setEstado] = useState('idle'); // idle | generando | enviando | exito | error
   const [mensajeError, setMensajeError] = useState('');
 
@@ -19,59 +19,68 @@ export default function Registro({ volverAlLogin }) {
     setMensajeError('');
 
     try {
-      let llavePublicaEcc = null;
-      let llavePublicaRsa = null;
-      let privadasParaCifrar = ""; 
+      const exportarAPEM = async (key, tipo) => {
+        const exported = await window.crypto.subtle.exportKey(tipo === "privada" ? "pkcs8" : "spki", key);
+        const base64 = window.btoa(String.fromCharCode(...new Uint8Array(exported)));
+        const tag = tipo === "privada" ? "PRIVATE KEY" : "PUBLIC KEY";
+        const lineas = base64.match(/.{1,64}/g).join('\n');
+        return `-----BEGIN ${tag}-----\n${lineas}\n-----END ${tag}-----`;
+      };
 
-      // 1. Generación de llaves (WebCrypto API)
+      const descargarArchivo = (contenido, nombre) => {
+        const blob = new Blob([contenido], { type: 'text/plain' });
+        const enlace = document.createElement('a');
+        enlace.href = URL.createObjectURL(blob);
+        enlace.download = nombre;
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
+      };
+
+      // --- LÓGICA DE GENERACIÓN POR ROL ---
+      let publicaRSA, publicaECC = null;
+
+      // Todos los roles necesitan RSA para recibir/leer recetas
+      const rsaKey = await window.crypto.subtle.generateKey(
+        { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+        true, ["encrypt", "decrypt"]
+      );
+      publicaRSA = await exportarAPEM(rsaKey.publicKey, "publica");
+      const privadaRSA = await exportarAPEM(rsaKey.privateKey, "privada");
+      
+      // Descarga obligatoria de la llave de cifrado (RSA)
+      descargarArchivo(privadaRSA, `llave_cifrado_${datos.usuario}.pem`);
+
+      // Solo el médico necesita ECC para firmar
       if (datos.rol === 'medico') {
-        const resEcc = await generarLlavesMedico();
-        const resRsa = await generarLlavesRSA();
+        const eccKey = await window.crypto.subtle.generateKey(
+          { name: "ECDSA", namedCurve: "P-256" },
+          true, ["sign", "verify"]
+        );
+        publicaECC = await exportarAPEM(eccKey.publicKey, "publica");
+        const privadaECC = await exportarAPEM(eccKey.privateKey, "privada");
         
-        llavePublicaEcc = resEcc.pemPublica;
-        llavePublicaRsa = resRsa.pemPublica;
-        
-        // Empacamos ambas privadas en un JSON para cifrarlas juntas
-        privadasParaCifrar = JSON.stringify({
-          ecc: resEcc.pemPrivada,
-          rsa: resRsa.pemPrivada
-        });
-        
-      } else {
-        const resRsa = await generarLlavesRSA();
-        llavePublicaRsa = resRsa.pemPublica;
-        privadasParaCifrar = resRsa.pemPrivada;
+        // Descarga separada para la llave de firma (ECC)
+        descargarArchivo(privadaECC, `llave_firma_${datos.usuario}.pem`);
       }
-
-      // 2. Cifrado de la Bóveda (Keystore) usando la contraseña del usuario
-      const boveda = await encriptarLlaveParaFirebase(privadasParaCifrar, datos.password);
 
       setEstado('enviando');
 
-      // 3. Envío del payload extendido al Backend
-      const payload = {
-        usuario: datos.username,
+      await api.post('/api/registro', {
+        usuario: datos.usuario,
         password: datos.password,
         nombre: datos.nombre,
         edad: parseInt(datos.edad),
         rol: datos.rol,
-        llave_publica_ecc: llavePublicaEcc,
-        llave_publica_rsa: llavePublicaRsa,
-        // Nuevos campos para la portabilidad de identidad en la nube
-        llave_privada_encriptada: boveda.llave_privada_encriptada,
-        salt: boveda.salt,
-        iv: boveda.iv
-      };
+        llave_publica_rsa: publicaRSA,
+        llave_publica_ecc: publicaECC // Será null si no es médico
+      });
 
-      await api.post('/api/registro', payload);
-      
       setEstado('exito');
-      setTimeout(() => volverAlLogin(), 3000); 
-
     } catch (error) {
       console.error(error);
+      setMensajeError(error.response?.data?.detail || 'Error en el registro');
       setEstado('error');
-      setMensajeError(error.response?.data?.detail || "Hubo un problema al crear la cuenta segura.");
     }
   };
 
@@ -79,14 +88,23 @@ export default function Registro({ volverAlLogin }) {
     <div className="glass-card" style={{ maxWidth: '500px' }}>
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
         <h2 style={{ color: '#0f172a', margin: '0 0 5px 0' }}>Crear Identidad Segura</h2>
-        <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Tus llaves privadas se cifrarán con tu contraseña antes de subir a la nube.</p>
+        <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Tus llaves privadas se generarán localmente y se descargarán en tu dispositivo.</p>
       </div>
 
       {estado === 'exito' ? (
         <div style={{ textAlign: 'center', padding: '40px 20px' }}>
           <div style={{ fontSize: '48px', marginBottom: '15px' }}>✅</div>
-          <h3 style={{ color: '#166534', margin: '0 0 10px 0' }}>¡Bóveda Sincronizada!</h3>
-          <p style={{ color: '#475569', fontSize: '14px' }}>Tu identidad digital ha sido cifrada y respaldada con éxito. Redirigiendo al login...</p>
+          <h3 style={{ color: '#166534', margin: '0 0 10px 0' }}>¡Identidad Creada!</h3>
+          <p style={{ color: '#475569', fontSize: '14px', marginBottom: '20px' }}>
+            Tu archivo <b>.pem</b> ha sido descargado. Guárdalo bien, lo necesitarás para operar.
+          </p>
+          <button 
+            onClick={() => volverAlLogin()} 
+            className="btn-primary"
+            style={{ minHeight: '45px', padding: '0 20px' }}
+          >
+            Ir a Iniciar Sesión
+          </button>
         </div>
       ) : (
         <form onSubmit={manejarRegistro}>
@@ -114,7 +132,7 @@ export default function Registro({ volverAlLogin }) {
           <div className="input-group" style={{ display: 'flex', gap: '15px' }}>
             <div style={{ flex: 1 }}>
               <label>Usuario (ID)</label>
-              <input type="text" required className="premium-input" value={datos.username} onChange={(e) => setDatos({...datos, username: e.target.value})} />
+              <input type="text" required className="premium-input" value={datos.usuario} onChange={(e) => setDatos({...datos, usuario: e.target.value})} />
             </div>
             <div style={{ flex: 1 }}>
               <label>Contraseña Maestra</label>
@@ -135,12 +153,12 @@ export default function Registro({ volverAlLogin }) {
             style={{ minHeight: '54px', transition: 'all 0.3s' }} 
           >
             {estado === 'idle' || estado === 'error' ? (
-              'Generar Bóveda y Registrar'
+              'Generar Llaves y Registrar'
             ) : (
               <div className="loading-container">
                 <div className="spinning-pill"></div>
                 <span>
-                  {estado === 'generando' ? 'Forjando llaves RSA/ECC...' : 'Cifrando y Sincronizando...'}
+                  {estado === 'generando' ? 'Forjando llaves RSA/ECC...' : 'Subiendo llaves públicas...'}
                 </span>
               </div>
             )}

@@ -2,105 +2,163 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 
 export default function Admin({ token }) {
-  const [usuarios, setUsuarios] = useState({});
-  const [recetas, setRecetas] = useState({});
-  const [error, setError] = useState(null);
-  const [cargando, setCargando] = useState(true);
+  const [usuarios, setUsuarios] = useState([]);
+  const [recetas, setRecetas] = useState([]);
+  const config = { headers: { Authorization: `Bearer ${token}` } };
 
-  // useEffect se ejecuta automáticamente cuando el componente carga
-  useEffect(() => {
-    const cargarDatos = async () => {
-      try {
-        const config = { headers: { Authorization: `Bearer ${token}` } };
-        
-        // Hacemos las dos peticiones al mismo tiempo
-        const [resUsuarios, resRecetas] = await Promise.all([
-          api.get('/admin/usuarios', config),
-          api.get('/admin/recetas', config)
-        ]);
+  const cargarDatos = async () => {
+    try {
+      const [resUsers, resRecetas] = await Promise.all([
+        api.get('/api/admin/usuarios', config),
+        api.get('/api/admin/recetas', config)
+      ]);
+      setUsuarios(resUsers.data);
+      setRecetas(resRecetas.data);
+    } catch (error) {
+      console.error("Error al cargar datos", error);
+    }
+  };
 
-        setUsuarios(resUsuarios.data);
-        setRecetas(resRecetas.data);
-        setCargando(false);
-      } catch (err) {
-        setError(err.response?.data?.detail || "Error al cargar la base de datos.");
-        setCargando(false);
-      }
-    };
+  useEffect(() => { cargarDatos(); }, []);
 
-    cargarDatos();
-  }, [token]);
+  const borrarUsuario = async (id) => {
+    if (!window.confirm(`¿Seguro que deseas eliminar al usuario ${id}?`)) return;
+    try {
+      await api.delete(`/api/admin/usuarios/${id}`, config);
+      cargarDatos();
+    } catch (e) { alert("Error al eliminar"); }
+  };
 
-  if (cargando) return <h3 style={{ textAlign: 'center' }}>Cargando base de datos segura...</h3>;
-  if (error) return <div style={{ color: 'red', textAlign: 'center' }}>❌ {error}</div>;
+  const borrarReceta = async (id) => {
+    if (!window.confirm(`¿Seguro que deseas eliminar la receta ${id}?`)) return;
+    try {
+      await api.delete(`/api/admin/recetas/${id}`, config);
+      cargarDatos();
+    } catch (e) { alert("Error al eliminar"); }
+  };
+
+  // Función para truncar textos largos para que la tabla no se rompa visualmente
+  const truncar = (texto, limite = 25) => {
+    if (!texto) return "N/A";
+    return texto.length > limite ? texto.substring(0, limite) + "..." : texto;
+  };
 
   return (
-    <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6', maxWidth: '1000px', margin: '0 auto' }}>
-      <h2 style={{ textAlign: 'center', color: '#343a40' }}>🛡️ Dashboard de Auditoría y Seguridad</h2>
-      <p style={{ textAlign: 'center', color: '#6c757d' }}>Vista global de Firebase. Comprobación de confidencialidad (Zero-Knowledge).</p>
+    <div style={{ padding: '30px 40px', width: '100vw', position: 'relative', left: '50%', right: '50%', marginLeft: '-50vw', marginRight: '-50vw', boxSizing: 'border-box' }}>
+      <header style={{ marginBottom: '30px', borderBottom: '1px solid #e2e8f0', paddingBottom: '15px' }}>
+        <h1 style={{ color: '#0f172a', margin: 0, fontSize: '28px', fontWeight: '800' }}>Terminal de Auditoría Criptográfica</h1>
+        <p style={{ color: '#64748b', margin: '5px 0 0 0' }}>Gestión de identidades y verificación de integridad HMAC/E2EE</p>
+      </header>
 
-      {/* SECCIÓN DE USUARIOS */}
-      <div style={{ marginTop: '30px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-        <h3 style={{ borderBottom: '2px solid #007bff', paddingBottom: '10px' }}>👥 Directorio de Usuarios (Llaves Públicas)</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#e9ecef', textAlign: 'left' }}>
-                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Usuario</th>
-                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Rol</th>
-                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Llave Pública (Extracto)</th>
+      {/* SECCIÓN USUARIOS */}
+      <div className="panel-glow" style={{ padding: '20px', marginBottom: '30px', width: '100%', overflowX: 'auto' }}>
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1e293b' }}>
+          <svg style={{width:'20px'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Directorio de Identidades (Llaves Públicas)
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', fontSize: '13px' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', textAlign: 'left', borderBottom: '2px solid #e2e8f0' }}>
+              <th style={{ padding: '12px' }}>ID Usuario</th>
+              <th style={{ padding: '12px' }}>Rol</th>
+              <th style={{ padding: '12px' }}>Llave Pública RSA (Fragmento)</th>
+              <th style={{ padding: '12px' }}>Llave Pública ECC (Firma)</th>
+              <th style={{ padding: '12px', textAlign: 'center' }}>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usuarios.map(u => (
+              <tr key={u.usuario} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '12px', fontWeight: 'bold', color: '#2563eb' }}>{u.usuario}</td>
+                <td style={{ padding: '12px' }}>
+                  <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontSize: '11px', fontWeight: 'bold' }}>{u.rol.toUpperCase()}</span>
+                </td>
+                <td style={{ padding: '12px', fontFamily: 'monospace', color: '#64748b' }} title={u.llave_publica_rsa}>
+                  {truncar(u.llave_publica_rsa, 40)}
+                </td>
+                <td style={{ padding: '12px', fontFamily: 'monospace', color: '#64748b' }} title={u.llave_publica_ecc}>
+                  {truncar(u.llave_publica_ecc, 40)}
+                </td>
+                <td style={{ padding: '12px', textAlign: 'center' }}>
+                  <button onClick={() => borrarUsuario(u.usuario)} className="btn-borrar">Eliminar</button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {Object.entries(usuarios).map(([id, datos]) => (
-                <tr key={id}>
-                  <td style={{ padding: '10px', border: '1px solid #dee2e6', fontWeight: 'bold' }}>{id}</td>
-                  <td style={{ padding: '10px', border: '1px solid #dee2e6', textTransform: 'capitalize' }}>{datos.rol}</td>
-                  <td style={{ padding: '10px', border: '1px solid #dee2e6', fontFamily: 'monospace', fontSize: '12px', color: '#28a745', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {datos.llave_publica_rsa || datos.llave_publica_ecc || "No registrada"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* SECCIÓN DE RECETAS */}
-      <div style={{ marginTop: '30px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-        <h3 style={{ borderBottom: '2px solid #28a745', paddingBottom: '10px' }}>🔐 Bóveda de Recetas Cifradas (AES + RSA)</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#e9ecef', textAlign: 'left' }}>
-                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>ID Receta</th>
-                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Estado</th>
-                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Criptograma AES (Receta)</th>
-                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Firma Digital (ECDSA)</th>
+      {/* SECCIÓN RECETAS */}
+      <div className="panel-glow" style={{ padding: '20px', width: '100%', overflowX: 'auto' }}>
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1e293b' }}>
+          <svg style={{width:'20px'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Libro Mayor de Recetas (Tráfico Cifrado y Firmas)
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', fontSize: '12px' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', textAlign: 'left', borderBottom: '2px solid #e2e8f0' }}>
+              <th style={{ padding: '12px' }}>Folio</th>
+              <th style={{ padding: '12px' }}>Estado</th>
+              <th style={{ padding: '12px' }}>Payload Cifrado (AES)</th>
+              <th style={{ padding: '12px' }}>Firma (ECDSA)</th>
+              <th style={{ padding: '12px' }}>Sello MAC</th>
+              <th style={{ padding: '12px' }}>Integridad</th>
+              <th style={{ padding: '12px', textAlign: 'center' }}>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recetas.map(r => (
+              <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '12px', fontWeight: 'bold' }}>{r.id}</td>
+                <td style={{ padding: '12px' }}>
+                  <span style={{ 
+                    padding: '3px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    background: r.estado === 'SURTIDA' ? '#dcfce7' : '#fef3c7',
+                    color: r.estado === 'SURTIDA' ? '#166534' : '#92400e'
+                  }}>{r.estado}</span>
+                </td>
+                <td style={{ padding: '12px', fontFamily: 'monospace', color: '#94a3b8' }} title={r.receta_cifrada}>
+                  {truncar(r.receta_cifrada, 30)}
+                </td>
+                <td style={{ padding: '12px', fontFamily: 'monospace', color: '#94a3b8' }} title={r.firma_ecdsa}>
+                  {truncar(r.firma_ecdsa, 30)}
+                </td>
+                <td style={{ padding: '12px', fontFamily: 'monospace', color: '#94a3b8' }} title={r.sello_mac}>
+                  {truncar(r.sello_mac, 20)}
+                </td>
+                <td style={{ padding: '12px' }}>
+                  {r.integridad === "VALIDA" && <span style={{ color: '#059669', fontWeight: 'bold' }}>✓ Legítima</span>}
+                  {r.integridad === "CORROMPIDA" && <span style={{ color: '#dc2626', fontWeight: 'bold' }}>⚠ ALTERADA</span>}
+                  {r.integridad === "N/A" && <span style={{ color: '#64748b' }}>Pendiente</span>}
+                </td>
+                <td style={{ padding: '12px', textAlign: 'center' }}>
+                  <button onClick={() => borrarReceta(r.id)} className="btn-borrar">Borrar</button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {Object.entries(recetas).map(([id, datos]) => (
-                <tr key={id}>
-                  <td style={{ padding: '10px', border: '1px solid #dee2e6', fontWeight: 'bold', color: '#007bff' }}>{id}</td>
-                  <td style={{ padding: '10px', border: '1px solid #dee2e6', fontWeight: 'bold', color: datos.estado === 'SURTIDA' ? 'red' : 'green' }}>
-                    {datos.estado}
-                  </td>
-                  <td style={{ padding: '10px', border: '1px solid #dee2e6', fontFamily: 'monospace', fontSize: '12px', color: '#6c757d', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {datos.receta_cifrada}
-                  </td>
-                  <td style={{ padding: '10px', border: '1px solid #dee2e6', fontFamily: 'monospace', fontSize: '12px', color: '#d39e00', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {datos.firma_ecdsa}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p style={{ marginTop: '15px', fontSize: '12px', color: '#666' }}>
-          <em>* Nota: Como administrador, no tienes acceso a la llave privada RSA del paciente ni del médico, por lo tanto, es matemáticamente imposible descifrar la columna "Criptograma AES".</em>
-        </p>
+            ))}
+          </tbody>
+        </table>
       </div>
+
+      <style jsx>{`
+        .btn-borrar {
+          background: #fee2e2;
+          color: #991b1b;
+          border: 1px solid #fecaca;
+          padding: 6px 12px;
+          borderRadius: 6px;
+          cursor: pointer;
+          font-size: 11px;
+          font-weight: bold;
+          transition: all 0.2s;
+        }
+        .btn-borrar:hover {
+          background: #ef4444;
+          color: white;
+        }
+      `}</style>
     </div>
   );
 }
